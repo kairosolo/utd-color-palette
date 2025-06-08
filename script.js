@@ -1,4 +1,3 @@
-// Color conversion utilities
 function hexToRgb(hex) {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     return result ? {
@@ -59,20 +58,16 @@ class ColorTooltip {
 
         const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b);
 
-        // Update tooltip content
         this.hexElement.textContent = hexColor.toUpperCase();
         this.rgbElement.textContent = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
         this.hsvElement.textContent = `${hsv.h}°, ${hsv.s}%, ${hsv.v}%`;
 
-        // Position tooltip
         this.tooltip.style.left = `${x + 15}px`;
         this.tooltip.style.top = `${y - 10}px`;
 
-        // Show tooltip
         this.tooltip.classList.add('visible');
         this.isVisible = true;
 
-        // Adjust position if tooltip goes off screen
         this.adjustPosition();
     }
 
@@ -86,24 +81,20 @@ class ColorTooltip {
         const windowWidth = window.innerWidth;
         const windowHeight = window.innerHeight;
 
-        // Adjust horizontal position
         if (rect.right > windowWidth - 10) {
             const currentLeft = parseInt(this.tooltip.style.left);
             this.tooltip.style.left = `${currentLeft - (rect.right - windowWidth + 20)}px`;
         }
 
-        // Adjust vertical position
         if (rect.bottom > windowHeight - 10) {
             const currentTop = parseInt(this.tooltip.style.top);
             this.tooltip.style.top = `${currentTop - rect.height - 20}px`;
         }
 
-        // Ensure tooltip doesn't go off the left edge
         if (rect.left < 10) {
             this.tooltip.style.left = '10px';
         }
 
-        // Ensure tooltip doesn't go off the top edge
         if (rect.top < 10) {
             this.tooltip.style.top = '10px';
         }
@@ -117,13 +108,60 @@ class ColorTooltip {
     }
 }
 
-// Copy to clipboard function
+class DescriptionTooltip {
+    constructor() {
+        this.tooltip = document.getElementById('description-tooltip');
+        this.textElement = document.getElementById('description-text');
+        this.isVisible = false;
+    }
+
+    show(x, y, description) {
+        this.textElement.textContent = description;
+
+        this.tooltip.style.left = `${x + 15}px`;
+        this.tooltip.style.top = `${y - 10}px`;
+
+        this.tooltip.classList.add('visible');
+        this.isVisible = true;
+
+        this.adjustPosition();
+    }
+
+    hide() {
+        this.tooltip.classList.remove('visible');
+        this.isVisible = false;
+    }
+
+    adjustPosition() {
+        const rect = this.tooltip.getBoundingClientRect();
+        const windowWidth = window.innerWidth;
+        const windowHeight = window.innerHeight;
+
+        if (rect.right > windowWidth - 10) {
+            const currentLeft = parseInt(this.tooltip.style.left);
+            this.tooltip.style.left = `${currentLeft - (rect.right - windowWidth + 20)}px`;
+        }
+
+        if (rect.bottom > windowHeight - 10) {
+            const currentTop = parseInt(this.tooltip.style.top);
+            this.tooltip.style.top = `${currentTop - rect.height - 20}px`;
+        }
+
+        if (rect.left < 10) {
+            this.tooltip.style.left = '10px';
+        }
+
+        if (rect.top < 10) {
+            this.tooltip.style.top = '10px';
+        }
+    }
+}
+
 async function copyToClipboard(text) {
     try {
         await navigator.clipboard.writeText(text);
         return true;
     } catch (err) {
-        // Fallback for older browsers
         const textArea = document.createElement('textarea');
         textArea.value = text;
         textArea.style.position = 'fixed';
@@ -144,49 +182,73 @@ async function copyToClipboard(text) {
     }
 }
 
-// Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
-    const tooltip = new ColorTooltip();
+    const colorTooltip = new ColorTooltip();
+    const descriptionTooltip = new DescriptionTooltip();
     const colorBoxes = document.querySelectorAll('.color-box');
 
     colorBoxes.forEach(colorBox => {
         const hexColor = colorBox.getAttribute('data-color');
+        const description = colorBox.getAttribute('data-description');
+        const infoIcon = colorBox.querySelector('.info-icon');
 
-        // Mouse enter event
         colorBox.addEventListener('mouseenter', function(e) {
-            tooltip.show(e.pageX, e.pageY, hexColor);
+            if (!e.target.classList.contains('info-icon')) {
+                colorTooltip.show(e.pageX, e.pageY, hexColor);
+            }
         });
 
-        // Mouse move event
         colorBox.addEventListener('mousemove', function(e) {
-            if (tooltip.isVisible) {
-                tooltip.show(e.pageX, e.pageY, hexColor);
+            if (colorTooltip.isVisible && !e.target.classList.contains('info-icon')) {
+                colorTooltip.show(e.pageX, e.pageY, hexColor);
             }
         });
 
-        // Mouse leave event
-        colorBox.addEventListener('mouseleave', function() {
-            tooltip.hide();
+        colorBox.addEventListener('mouseleave', function(e) {
+            if (!e.relatedTarget || !colorBox.contains(e.relatedTarget)) {
+                colorTooltip.hide();
+            }
         });
 
-        // Click event for copying
-        colorBox.addEventListener('click', async function() {
-            const hexWithoutHash = hexColor.substring(1); // Remove the # symbol
-            const success = await copyToClipboard(hexWithoutHash);
-            
-            if (success) {
-                tooltip.showCopyNotification();
+        if (infoIcon) {
+            infoIcon.addEventListener('mouseenter', function(e) {
+                e.stopPropagation();
+                colorTooltip.hide(); 
+                descriptionTooltip.show(e.pageX, e.pageY, description);
+            });
+
+            infoIcon.addEventListener('mousemove', function(e) {
+                e.stopPropagation();
+                if (descriptionTooltip.isVisible) {
+                    descriptionTooltip.show(e.pageX, e.pageY, description);
+                }
+            });
+
+            infoIcon.addEventListener('mouseleave', function(e) {
+                e.stopPropagation();
+                descriptionTooltip.hide();
+            });
+        }
+
+        colorBox.addEventListener('click', async function(e) {
+            if (!e.target.classList.contains('info-icon')) {
+                const hexWithoutHash = hexColor.substring(1); 
+                const success = await copyToClipboard(hexWithoutHash);
+                
+                if (success) {
+                    colorTooltip.showCopyNotification();
+                }
             }
         });
     });
 
-    // Hide tooltip when scrolling
     window.addEventListener('scroll', function() {
-        tooltip.hide();
+        colorTooltip.hide();
+        descriptionTooltip.hide();
     });
 
-    // Hide tooltip when window is resized
     window.addEventListener('resize', function() {
-        tooltip.hide();
+        colorTooltip.hide();
+        descriptionTooltip.hide();
     });
 });
